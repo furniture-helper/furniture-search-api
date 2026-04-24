@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"furniture-search-api/internal/helpers"
@@ -29,14 +28,11 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(product); err != nil {
-		helpers.LogError("Failed to encode product", r.Context(), err, nil)
-		helpers.WriteJSONError(w, http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(buf.Bytes())
+
+	if err := json.NewEncoder(w).Encode(product); err != nil {
+		helpers.LogError("Failed to encode product", r.Context(), err, nil)
+		return
+	}
 }
