@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"furniture-search-api/internal/helpers"
 	"furniture-search-api/internal/models"
 	"net/http"
@@ -24,14 +23,11 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	product, err := h.service.GetProductFromUrl(r.Context(), "test")
 	if err != nil {
 		helpers.LogError("Failed to get product", r.Context(), err, nil)
-		helpers.WriteJSONError(w, http.StatusInternalServerError, "Internal Server Error")
+		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(product); err != nil {
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, product); err != nil {
 		helpers.LogError("Failed to encode product", r.Context(), err, nil)
 		return
 	}

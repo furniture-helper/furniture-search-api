@@ -13,10 +13,15 @@ type requestIDContextKey string
 
 const requestIDKey requestIDContextKey = "request_id"
 
-func WriteJSONError(w http.ResponseWriter, status int, msg string) {
+func WriteJSONResponse(w http.ResponseWriter, status int, payload any) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+
+	return json.NewEncoder(w).Encode(payload)
+}
+
+func WriteJSONErrorResponse(w http.ResponseWriter, status int, msg string) {
+	_ = WriteJSONResponse(w, status, map[string]string{"error": msg})
 }
 
 func WithRequestId(ctx context.Context, requestId string) context.Context {
