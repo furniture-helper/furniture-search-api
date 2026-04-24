@@ -48,6 +48,8 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 
 func logRequest(r *http.Request) {
 	logAttr := map[string]interface{}{
+		"method":          r.Method,
+		"uri":             r.RequestURI,
 		"request_headers": cloneHeaders(r.Header),
 	}
 

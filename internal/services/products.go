@@ -18,6 +18,6 @@ func (s *ProductService) GetProductFromUrl(ctx context.Context, url string) (mod
 		Title: "iPhone",
 		Price: "1000.00",
 	}
-	helpers.LogDebug("Inside Product Service", nil, nil)
+	helpers.LogDebug("Inside Product Service", ctx, nil)
 	return product, nil
 }
