@@ -23,12 +23,14 @@ func NewProductHandler(service ProductService) *ProductHandler {
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	product, err := h.service.GetProductFromUrl("test")
 	if err != nil {
+		helpers.LogError("Failed to get product", r, err, nil)
 		helpers.WriteJSONError(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(product); err != nil {
+		helpers.LogError("Failed to encode product", r, err, nil)
 		helpers.WriteJSONError(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
