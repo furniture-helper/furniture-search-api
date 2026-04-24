@@ -35,16 +35,3 @@ func GetRequestIdFromContext(ctx context.Context) string {
 
 	return strings.TrimSpace(requestId)
 }
-
-func GetRequestId(r *http.Request) string {
-	if r == nil {
-		return ""
-	}
-
-	requestId := GetRequestIdFromContext(r.Context())
-	if requestId != "" {
-		return requestId
-	}
-
-	return strings.TrimSpace(r.Header.Get(RequestIDHeader))
-}

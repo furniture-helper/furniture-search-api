@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"furniture-search-api/internal/helpers"
 	"furniture-search-api/internal/models"
@@ -9,7 +10,7 @@ import (
 )
 
 type ProductService interface {
-	GetProductFromUrl(url string) (models.Product, error)
+	GetProductFromUrl(ctx context.Context, url string) (models.Product, error)
 }
 
 type ProductHandler struct {
@@ -21,16 +22,16 @@ func NewProductHandler(service ProductService) *ProductHandler {
 }
 
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
-	product, err := h.service.GetProductFromUrl("test")
+	product, err := h.service.GetProductFromUrl(r.Context(), "test")
 	if err != nil {
-		helpers.LogError("Failed to get product", r, err, nil)
+		helpers.LogError("Failed to get product", r.Context(), err, nil)
 		helpers.WriteJSONError(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(product); err != nil {
-		helpers.LogError("Failed to encode product", r, err, nil)
+		helpers.LogError("Failed to encode product", r.Context(), err, nil)
 		helpers.WriteJSONError(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}

@@ -51,7 +51,7 @@ func logRequest(r *http.Request) {
 		"request_headers": cloneHeaders(r.Header),
 	}
 
-	helpers.LogDebug("HTTP Request received", r, logAttr)
+	helpers.LogDebug("HTTP Request received", r.Context(), logAttr)
 }
 
 func logResponse(r *http.Request, duration time.Duration, statusCode int, responseHeaders http.Header) {
@@ -64,9 +64,9 @@ func logResponse(r *http.Request, duration time.Duration, statusCode int, respon
 	}
 
 	if statusCode >= 400 {
-		helpers.LogError("HTTP request failed", r, nil, logAttr)
+		helpers.LogError("HTTP request failed", r.Context(), nil, logAttr)
 	} else {
-		helpers.LogDebug("HTTP request successful", r, logAttr)
+		helpers.LogDebug("HTTP request successful", r.Context(), logAttr)
 	}
 
 }

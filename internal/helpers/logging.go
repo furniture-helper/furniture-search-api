@@ -1,9 +1,9 @@
 package helpers
 
 import (
+	"context"
 	"furniture-search-api/internal/config"
 	"log/slog"
-	"net/http"
 	"os"
 )
 
@@ -23,13 +23,11 @@ func InitLogger() {
 	slog.SetDefault(logger)
 }
 
-func getBaseLogAttr(r *http.Request, args map[string]any) []any {
+func getBaseLogAttr(ctx context.Context, args map[string]any) []any {
 	var logAttrs []any
 
-	if r != nil {
-		logAttrs = append(logAttrs, slog.String("request_id", GetRequestId(r)))
-		logAttrs = append(logAttrs, slog.String("method", r.Method))
-		logAttrs = append(logAttrs, slog.String("uri", r.RequestURI))
+	if ctx != nil {
+		logAttrs = append(logAttrs, slog.String("request_id", GetRequestIdFromContext(ctx)))
 	}
 
 	for k, v := range args {
@@ -39,8 +37,8 @@ func getBaseLogAttr(r *http.Request, args map[string]any) []any {
 	return logAttrs
 }
 
-func LogError(message string, r *http.Request, err error, args map[string]any) {
-	logAttrs := getBaseLogAttr(r, args)
+func LogError(message string, ctx context.Context, err error, args map[string]any) {
+	logAttrs := getBaseLogAttr(ctx, args)
 
 	if err != nil {
 		logAttrs = append(logAttrs, slog.String("error", err.Error()))
@@ -49,12 +47,12 @@ func LogError(message string, r *http.Request, err error, args map[string]any) {
 	slog.Error(message, logAttrs...)
 }
 
-func LogInfo(message string, r *http.Request, args map[string]any) {
-	logAttrs := getBaseLogAttr(r, args)
+func LogInfo(message string, ctx context.Context, args map[string]any) {
+	logAttrs := getBaseLogAttr(ctx, args)
 	slog.Info(message, logAttrs...)
 }
 
-func LogDebug(message string, r *http.Request, args map[string]any) {
-	logAttrs := getBaseLogAttr(r, args)
+func LogDebug(message string, ctx context.Context, args map[string]any) {
+	logAttrs := getBaseLogAttr(ctx, args)
 	slog.Debug(message, logAttrs...)
 }
