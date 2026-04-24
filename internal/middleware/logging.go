@@ -11,6 +11,18 @@ type loggingResponseWriter struct {
 	statusCode int
 }
 
+func cloneHeaders(headers http.Header) map[string][]string {
+	cloned := make(map[string][]string, len(headers))
+
+	for key, values := range headers {
+		copiedValues := make([]string, len(values))
+		copy(copiedValues, values)
+		cloned[key] = copiedValues
+	}
+
+	return cloned
+}
+
 func (lrw *loggingResponseWriter) WriteHeader(code int) {
 	lrw.statusCode = code
 	lrw.ResponseWriter.WriteHeader(code)
@@ -30,28 +42,25 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(lrw, r)
 
 		duration := time.Since(start)
-		logResponse(r, duration, lrw.statusCode)
+		logResponse(r, duration, lrw.statusCode, lrw.Header())
 	})
 }
 
 func logRequest(r *http.Request) {
 	logAttr := map[string]interface{}{
-		"method": r.Method,
-		"uri":    r.RequestURI,
+		"request_headers": cloneHeaders(r.Header),
 	}
 
 	helpers.LogDebug("HTTP Request received", r, logAttr)
 }
 
-func logResponse(r *http.Request, duration time.Duration, statusCode int) {
+func logResponse(r *http.Request, duration time.Duration, statusCode int, responseHeaders http.Header) {
 	durationMs := float64(duration) / float64(time.Millisecond)
 
 	logAttr := map[string]interface{}{
-		"request_id":  helpers.GetRequestId(r),
-		"method":      r.Method,
-		"uri":         r.RequestURI,
-		"status":      statusCode,
-		"duration_ms": durationMs,
+		"status":           statusCode,
+		"duration_ms":      durationMs,
+		"response_headers": cloneHeaders(responseHeaders),
 	}
 
 	if statusCode >= 400 {
