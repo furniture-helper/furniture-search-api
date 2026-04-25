@@ -32,7 +32,6 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 
 	product, err := h.service.GetFromUrl(r.Context(), url)
 	if err != nil {
-		helpers.LogError("Failed to get product from service", r.Context(), err, nil)
 
 		var notFoundErr *customerrors.ProductNotFoundError
 		if errors.As(err, &notFoundErr) {

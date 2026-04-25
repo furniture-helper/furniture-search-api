@@ -66,7 +66,7 @@ func logResponse(r *http.Request, duration time.Duration, statusCode int, respon
 	}
 
 	if statusCode >= 400 {
-		helpers.LogError("HTTP request failed", r.Context(), nil, logAttr)
+		helpers.LogInfo("HTTP request failed", r.Context(), logAttr)
 	} else {
 		helpers.LogDebug("HTTP request successful", r.Context(), logAttr)
 	}

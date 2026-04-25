@@ -2,12 +2,10 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	customerrors "furniture-search-api/internal/errors"
+	"furniture-search-api/internal/helpers"
 	"furniture-search-api/internal/models"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,10 +18,6 @@ func NewProductRepository(pool *pgxpool.Pool) *ProductRepository {
 }
 
 func (r *ProductRepository) GetByURL(ctx context.Context, url string) (models.Product, error) {
-	if r == nil || r.pool == nil {
-		return models.Product{}, errors.New("product repository is not initialized")
-	}
-
 	const query = `
 		SELECT url, product_title, product_price
 		FROM page_inferred_labels
@@ -33,11 +27,13 @@ func (r *ProductRepository) GetByURL(ctx context.Context, url string) (models.Pr
 
 	var product models.Product
 	if err := r.pool.QueryRow(ctx, query, url).Scan(&product.Url, &product.Title, &product.Price); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return models.Product{}, customerrors.NewProductNotFoundError(url)
-		}
+		//if errors.Is(err, pgx.ErrNoRows) {
+		//	helpers.LogInfo("Product not found", ctx, map[string]any{"url": url})
+		//	return models.Product{}, customerrors.NewProductNotFoundError(url)
+		//}
 
-		return models.Product{}, fmt.Errorf("Failed to query product by url: %w", err)
+		helpers.LogError("Failed to query product by url", ctx, err, map[string]any{"url": url})
+		return models.Product{}, fmt.Errorf("failed to query product by url: %w", err)
 	}
 
 	return product, nil
