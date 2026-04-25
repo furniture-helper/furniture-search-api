@@ -2,22 +2,30 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"furniture-search-api/internal/helpers"
 	"furniture-search-api/internal/models"
 )
 
-type ProductService struct{}
-
-func NewProductService() *ProductService {
-	return &ProductService{}
+type ProductStore interface {
+	GetByURL(ctx context.Context, url string) (models.Product, error)
 }
 
-func (s *ProductService) GetProductFromUrl(ctx context.Context, url string) (models.Product, error) {
-	product := models.Product{
-		Url:   url,
-		Title: "iPhone",
-		Price: "1000.00",
+type ProductService struct {
+	repository ProductStore
+}
+
+func NewProductService(repository ProductStore) *ProductService {
+	return &ProductService{
+		repository: repository,
 	}
-	helpers.LogDebug("Inside Product Service", ctx, nil)
+}
+
+func (s *ProductService) GetFromUrl(ctx context.Context, url string) (models.Product, error) {
+	product, err := s.repository.GetByURL(ctx, url)
+	if err != nil {
+		helpers.LogError("Failed to get product from repository", ctx, err, map[string]any{"url": url})
+		return models.Product{}, fmt.Errorf("failed to retrieve product by url: %w", err)
+	}
 	return product, nil
 }

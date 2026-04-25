@@ -8,7 +8,7 @@ import (
 )
 
 type ProductService interface {
-	GetProductFromUrl(ctx context.Context, url string) (models.Product, error)
+	GetFromUrl(ctx context.Context, url string) (models.Product, error)
 }
 
 type ProductHandler struct {
@@ -20,9 +20,9 @@ func NewProductHandler(service ProductService) *ProductHandler {
 }
 
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
-	product, err := h.service.GetProductFromUrl(r.Context(), "test")
+	product, err := h.service.GetFromUrl(r.Context(), "https://ugreen.lk/product/ugreen-24w-dual-usb-car-charger-cd130/")
 	if err != nil {
-		helpers.LogError("Failed to get product", r.Context(), err, nil)
+		helpers.LogError("Failed to get product from service", r.Context(), err, nil)
 		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}

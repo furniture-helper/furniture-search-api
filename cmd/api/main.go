@@ -6,6 +6,7 @@ import (
 	"furniture-search-api/internal/handlers"
 	"furniture-search-api/internal/helpers"
 	"furniture-search-api/internal/middleware"
+	"furniture-search-api/internal/repositories"
 	"furniture-search-api/internal/services"
 	"net/http"
 
@@ -21,7 +22,13 @@ func getRouter() *mux.Router {
 	r.Use(middleware.RequestIdMiddleware)
 	r.Use(middleware.LoggingMiddleware)
 
-	productService := services.NewProductService()
+	dbConnectionPool, err := repositories.NewPostgresPool(context.Background(), config.GetDatabaseConfig())
+	if err != nil {
+		panic(err)
+	}
+
+	productStore := repositories.NewProductRepository(dbConnectionPool)
+	productService := services.NewProductService(productStore)
 	productHandler := handlers.NewProductHandler(productService)
 	r.HandleFunc("/products", productHandler.GetProduct).Methods(http.MethodGet)
 
