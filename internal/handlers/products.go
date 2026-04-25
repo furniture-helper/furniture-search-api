@@ -25,7 +25,7 @@ func NewProductHandler(service ProductService) *ProductHandler {
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
 	if url == "" {
-		helpers.LogError("Missing url query parameter", r.Context(), nil, nil)
+		helpers.LogInfo("Missing url query parameter", r.Context(), nil)
 		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Missing url query parameter")
 		return
 	}
@@ -35,10 +35,12 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 
 		var notFoundErr *customerrors.ProductNotFoundError
 		if errors.As(err, &notFoundErr) {
+			helpers.LogInfo(fmt.Sprintf("Product with url \"%s\" not found", url), r.Context(), nil)
 			helpers.WriteJSONErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Product with url \"%s\" not found", url))
 			return
 		}
 
+		helpers.LogError("Failed to retrieve product", r.Context(), err, map[string]interface{}{"url": url})
 		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}

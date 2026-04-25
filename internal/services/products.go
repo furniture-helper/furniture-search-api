@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"furniture-search-api/internal/models"
 )
 
@@ -23,7 +22,7 @@ func NewProductService(repository ProductStore) *ProductService {
 func (s *ProductService) GetFromUrl(ctx context.Context, url string) (models.Product, error) {
 	product, err := s.repository.GetByURL(ctx, url)
 	if err != nil {
-		return models.Product{}, fmt.Errorf("failed to retrieve product by url: %w", err)
+		return models.Product{}, err
 	}
 	return product, nil
 }
