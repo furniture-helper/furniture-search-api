@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	customerrors "furniture-search-api/internal/errors"
 	"furniture-search-api/internal/helpers"
 	"furniture-search-api/internal/models"
 	"net/http"
@@ -20,9 +23,23 @@ func NewProductHandler(service ProductService) *ProductHandler {
 }
 
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
-	product, err := h.service.GetFromUrl(r.Context(), "https://ugreen.lk/product/ugreen-24w-dual-usb-car-charger-cd130/")
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		helpers.LogError("Missing url query parameter", r.Context(), nil, nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Missing url query parameter")
+		return
+	}
+
+	product, err := h.service.GetFromUrl(r.Context(), url)
 	if err != nil {
 		helpers.LogError("Failed to get product from service", r.Context(), err, nil)
+
+		var notFoundErr *customerrors.ProductNotFoundError
+		if errors.As(err, &notFoundErr) {
+			helpers.WriteJSONErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Product with url \"%s\" not found", url))
+			return
+		}
+
 		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
