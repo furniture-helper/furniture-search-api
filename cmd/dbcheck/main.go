@@ -12,8 +12,8 @@ import (
 func main() {
 	helpers.InitLogger()
 
-	cfg := config.GetDatabaseConfig()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	cfg := config.GetDatabaseConfig(ctx)
 	defer cancel()
 
 	pool, err := repositories.NewPostgresPool(ctx, cfg)

@@ -22,7 +22,7 @@ func getRouter() *mux.Router {
 	r.Use(middleware.RequestIdMiddleware)
 	r.Use(middleware.LoggingMiddleware)
 
-	dbConnectionPool, err := repositories.NewPostgresPool(context.Background(), config.GetDatabaseConfig())
+	dbConnectionPool, err := repositories.NewPostgresPool(context.Background(), config.GetDatabaseConfig(context.Background()))
 	if err != nil {
 		panic(err)
 	}
