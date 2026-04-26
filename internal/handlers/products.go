@@ -12,6 +12,7 @@ import (
 
 type ProductService interface {
 	GetFromUrl(ctx context.Context, url string) (models.Product, error)
+	SearchByTitle(ctx context.Context, searchQuery string) ([]models.Product, error)
 }
 
 type ProductHandler struct {
@@ -47,6 +48,25 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 
 	if err := helpers.WriteJSONResponse(w, http.StatusOK, product); err != nil {
 		helpers.LogError("Failed to encode product", r.Context(), err, nil)
+		return
+	}
+}
+
+func (h *ProductHandler) SearchByTitle(w http.ResponseWriter, r *http.Request) {
+	searchQuery := r.URL.Query().Get("query")
+	if searchQuery == "" {
+		helpers.LogInfo("Missing search query parameter", r.Context(), nil)
+	}
+
+	products, err := h.service.SearchByTitle(r.Context(), searchQuery)
+	if err != nil {
+		helpers.LogError("Failed to retrieve search results", r.Context(), err, map[string]interface{}{"query": searchQuery})
+		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, products); err != nil {
+		helpers.LogError("Failed to encode products", r.Context(), err, nil)
 		return
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 type ProductStore interface {
 	GetByURL(ctx context.Context, url string) (models.Product, error)
+	SearchByTitle(ctx context.Context, query string) ([]models.Product, error)
 }
 
 type ProductService struct {
@@ -25,4 +26,12 @@ func (s *ProductService) GetFromUrl(ctx context.Context, url string) (models.Pro
 		return models.Product{}, err
 	}
 	return product, nil
+}
+
+func (s *ProductService) SearchByTitle(ctx context.Context, searchQuery string) ([]models.Product, error) {
+	products, err := s.repository.SearchByTitle(ctx, searchQuery)
+	if err != nil {
+		return []models.Product{}, err
+	}
+	return products, nil
 }
