@@ -32,6 +32,7 @@ func getRouter() *mux.Router {
 	productHandler := handlers.NewProductHandler(productService)
 	r.HandleFunc("/products", productHandler.GetProduct).Methods(http.MethodGet)
 	r.HandleFunc("/products/search", productHandler.SearchByTitle).Methods(http.MethodGet)
+	r.HandleFunc("/products/price-history", productHandler.GetPriceHistory).Methods(http.MethodGet)
 
 	return r
 }

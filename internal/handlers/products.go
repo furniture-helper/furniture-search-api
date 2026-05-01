@@ -13,6 +13,7 @@ import (
 type ProductService interface {
 	GetFromUrl(ctx context.Context, url string) (models.Product, error)
 	SearchByTitle(ctx context.Context, searchQuery string) ([]models.Product, error)
+	GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error)
 }
 
 type ProductHandler struct {
@@ -68,5 +69,21 @@ func (h *ProductHandler) SearchByTitle(w http.ResponseWriter, r *http.Request) {
 	if err := helpers.WriteJSONResponse(w, http.StatusOK, products); err != nil {
 		helpers.LogError("Failed to encode products", r.Context(), err, nil)
 		return
+	}
+}
+
+func (h *ProductHandler) GetPriceHistory(w http.ResponseWriter, r *http.Request) {
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		helpers.LogInfo("Missing url query parameter", r.Context(), nil)
+	}
+
+	priceHistory, err := h.service.GetPriceHistory(r.Context(), url)
+	if err != nil {
+		helpers.LogError("Failed to retrieve price history", r.Context(), err, map[string]interface{}{"url": url})
+	}
+
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, priceHistory); err != nil {
+		helpers.LogError("Failed to encode products", r.Context(), err, nil)
 	}
 }

@@ -65,3 +65,29 @@ func (r *ProductRepository) SearchByTitle(ctx context.Context, searchQuery strin
 
 	return products, nil
 }
+
+func (r *ProductRepository) GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error) {
+	const query = `
+		SELECT price, recorded_at 
+		FROM product_price_history 
+		WHERE url = $1
+		ORDER BY recorded_at DESC
+	`
+
+	priceHistory := make([]models.PriceHistoryEntry, 0)
+	rows, err := r.pool.Query(ctx, query, url)
+	if err != nil {
+		return []models.PriceHistoryEntry{}, fmt.Errorf("failed to query price history: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var entry models.PriceHistoryEntry
+		if err := rows.Scan(&entry.Price, &entry.Timestamp); err != nil {
+			return []models.PriceHistoryEntry{}, fmt.Errorf("failed to query price history: %w", err)
+		}
+		priceHistory = append(priceHistory, entry)
+	}
+
+	return priceHistory, nil
+}

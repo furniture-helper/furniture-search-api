@@ -8,6 +8,7 @@ import (
 type ProductStore interface {
 	GetByURL(ctx context.Context, url string) (models.Product, error)
 	SearchByTitle(ctx context.Context, query string) ([]models.Product, error)
+	GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error)
 }
 
 type ProductService struct {
@@ -34,4 +35,13 @@ func (s *ProductService) SearchByTitle(ctx context.Context, searchQuery string) 
 		return []models.Product{}, err
 	}
 	return products, nil
+}
+
+func (s *ProductService) GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error) {
+	priceHistory, err := s.repository.GetPriceHistory(ctx, url)
+	if err != nil {
+		return []models.PriceHistoryEntry{}, err
+	}
+
+	return priceHistory, nil
 }
