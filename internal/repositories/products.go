@@ -70,7 +70,7 @@ func (r *ProductRepository) GetPriceHistory(ctx context.Context, url string) ([]
 	const query = `
 		SELECT price, recorded_at 
 		FROM product_price_history 
-		WHERE url = $1
+		WHERE url = $1 AND price IS NOT NULL
 		ORDER BY recorded_at DESC
 	`
 
