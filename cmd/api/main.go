@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 func getRouter() *mux.Router {
@@ -50,8 +51,17 @@ func main() {
 	helpers.InitLogger()
 	router := getRouter()
 
+	allowedOrigins := config.GetCorsAllowedOrigins()
+	c := cors.New(cors.Options{
+		AllowedOrigins: allowedOrigins,
+		AllowedMethods: []string{http.MethodGet},
+		AllowedHeaders: []string{},
+	})
+
+	handler := c.Handler(router)
+
 	if config.IsLocal() {
-		err := http.ListenAndServe(":8080", router)
+		err := http.ListenAndServe(":8080", handler)
 		if err != nil {
 			panic(err)
 		}
@@ -59,6 +69,6 @@ func main() {
 		return
 	}
 
-	lambdaHandler := newLambdaHandler(router)
+	lambdaHandler := newLambdaHandler(handler)
 	lambda.Start(lambdaHandler)
 }
