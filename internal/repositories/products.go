@@ -91,3 +91,78 @@ func (r *ProductRepository) GetPriceHistory(ctx context.Context, url string) ([]
 
 	return priceHistory, nil
 }
+
+func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.SimilarProduct, error) {
+	const query = `
+		WITH input AS (
+			SELECT
+				pil.url AS input_url,
+				pil.product_title AS input_title,
+				pil.product_price AS input_price,
+				lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) AS input_domain,
+				pe.embedding AS input_embedding
+			FROM page_inferred_labels pil
+					 JOIN products_embeddings_768 pe ON pe.url = pil.url
+			WHERE pil.url = $1  -- seed URL
+		),
+			 candidates AS (
+				 SELECT
+					 pil.url AS candidate_url,
+					 pil.product_title AS candidate_title,
+					 pil.product_price AS candidate_price,
+					 lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) AS candidate_domain,
+					 pe.embedding AS candidate_embedding
+				 FROM page_inferred_labels pil
+						  JOIN products_embeddings_768 pe ON pe.url = pil.url
+						  CROSS JOIN input i
+				 WHERE pil.url <> i.input_url
+				   AND pil.product_title IS NOT NULL
+				   AND pil.product_price IS NOT NULL
+				   AND lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) <> i.input_domain
+				 -- remove the line above if you want same-domain candidates too
+			 ),
+			 scored AS (
+				 SELECT
+					 i.input_url,
+					 i.input_domain,
+					 i.input_title,
+					 i.input_price,
+					 c.candidate_url,
+					 c.candidate_domain,
+					 c.candidate_title,
+					 c.candidate_price,
+					 similarity(lower(i.input_title), lower(c.candidate_title)) AS title_similarity,
+					 1 - (c.candidate_embedding <=> i.input_embedding) AS cosine_similarity
+				 FROM candidates c
+						  CROSS JOIN input i
+			 )
+		SELECT
+			candidate_url,
+			candidate_title,
+			candidate_price,
+			title_similarity,
+			cosine_similarity,
+			(0.5 * title_similarity + 0.5 * cosine_similarity) AS combined_score
+		FROM scored
+		WHERE title_similarity >= $2 AND cosine_similarity >= $3
+		ORDER BY combined_score DESC, cosine_similarity DESC
+		LIMIT 10;
+	`
+
+	rows, err := r.pool.Query(ctx, query, url, titleSimilarityThreshold, cosineSimilarityThreshold)
+	if err != nil {
+		return []models.SimilarProduct{}, fmt.Errorf("failed to query products: %w", err)
+	}
+	defer rows.Close()
+
+	var similarProducts []models.SimilarProduct
+	for rows.Next() {
+		var similarProduct models.SimilarProduct
+		if err := rows.Scan(&similarProduct.Product.Url, &similarProduct.Product.Title, &similarProduct.Product.Price, &similarProduct.TitleSimilarity, &similarProduct.CosineSimilarity, &similarProduct.CombinedSimilarity); err != nil {
+			return []models.SimilarProduct{}, fmt.Errorf("failed to scan similar product: %w", err)
+		}
+		similarProducts = append(similarProducts, similarProduct)
+	}
+
+	return similarProducts, nil
+}

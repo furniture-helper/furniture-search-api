@@ -8,12 +8,14 @@ import (
 	"furniture-search-api/internal/helpers"
 	"furniture-search-api/internal/models"
 	"net/http"
+	"strconv"
 )
 
 type ProductService interface {
 	GetFromUrl(ctx context.Context, url string) (models.Product, error)
 	SearchByTitle(ctx context.Context, searchQuery string) ([]models.Product, error)
 	GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error)
+	GetSimilarProducts(ctx context.Context, url string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.SimilarProduct, error)
 }
 
 type ProductHandler struct {
@@ -85,5 +87,50 @@ func (h *ProductHandler) GetPriceHistory(w http.ResponseWriter, r *http.Request)
 
 	if err := helpers.WriteJSONResponse(w, http.StatusOK, priceHistory); err != nil {
 		helpers.LogError("Failed to encode products", r.Context(), err, nil)
+	}
+}
+
+func (h *ProductHandler) GetSimilarProducts(w http.ResponseWriter, r *http.Request) {
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		helpers.LogInfo("Missing url query parameter", r.Context(), nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Missing url query parameter")
+		return
+	}
+
+	titleSimilarityThreshold := r.URL.Query().Get("title_similarity_threshold")
+	if titleSimilarityThreshold == "" {
+		titleSimilarityThreshold = "0.5"
+	}
+
+	cosineSimilarityThreshold := r.URL.Query().Get("cosine_similarity_threshold")
+	if cosineSimilarityThreshold == "" {
+		cosineSimilarityThreshold = "0.75"
+	}
+
+	titleSimilarityThresholdFloat, err := strconv.ParseFloat(titleSimilarityThreshold, 64)
+	if err != nil {
+		helpers.LogInfo("Invalid title similarity threshold", r.Context(), nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Invalid title similarity threshold")
+		return
+	}
+
+	cosineSimilarityThresholdFloat, err := strconv.ParseFloat(cosineSimilarityThreshold, 64)
+	if err != nil {
+		helpers.LogInfo("Invalid cosine similarity threshold", r.Context(), nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Invalid cosine similarity threshold")
+		return
+	}
+
+	similarProducts, err := h.service.GetSimilarProducts(r.Context(), url, titleSimilarityThresholdFloat, cosineSimilarityThresholdFloat)
+	if err != nil {
+		helpers.LogError("Failed to retrieve similar products", r.Context(), err, map[string]interface{}{"url": url})
+		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, similarProducts); err != nil {
+		helpers.LogError("Failed to encode products", r.Context(), err, nil)
+		return
 	}
 }

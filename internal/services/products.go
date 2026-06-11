@@ -9,6 +9,7 @@ type ProductStore interface {
 	GetByURL(ctx context.Context, url string) (models.Product, error)
 	SearchByTitle(ctx context.Context, query string) ([]models.Product, error)
 	GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error)
+	GetSimilarProducts(ctx context.Context, url string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.SimilarProduct, error)
 }
 
 type ProductService struct {
@@ -44,4 +45,12 @@ func (s *ProductService) GetPriceHistory(ctx context.Context, url string) ([]mod
 	}
 
 	return priceHistory, nil
+}
+
+func (s *ProductService) GetSimilarProducts(ctx context.Context, url string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.SimilarProduct, error) {
+	similarProducts, err := s.repository.GetSimilarProducts(ctx, url, titleSimilarityThreshold, cosineSimilarityThreshold)
+	if err != nil {
+		return []models.SimilarProduct{}, err
+	}
+	return similarProducts, nil
 }
