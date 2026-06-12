@@ -146,7 +146,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 		FROM scored
 		WHERE title_similarity >= $2 AND cosine_similarity >= $3
 		ORDER BY combined_score DESC, cosine_similarity DESC
-		LIMIT 10;
+		LIMIT 100;
 	`
 
 	rows, err := r.pool.Query(ctx, query, url, titleSimilarityThreshold, cosineSimilarityThreshold)
