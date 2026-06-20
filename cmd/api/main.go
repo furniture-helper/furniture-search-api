@@ -35,7 +35,7 @@ func getRouter() *mux.Router {
 	r.HandleFunc("/products/search", productHandler.SearchByTitle).Methods(http.MethodGet)
 	r.HandleFunc("/products/price-history", productHandler.GetPriceHistory).Methods(http.MethodGet)
 	r.HandleFunc("/products/similar", productHandler.GetSimilarProducts).Methods(http.MethodGet)
-	r.HandleFunc("/products/mark-matching", productHandler.MarkMatchingProduct).Methods(http.MethodPost)
+	r.HandleFunc("/products/mark-matching", productHandler.MarkMatchingProduct).Methods(http.MethodPost, http.MethodOptions)
 	r.HandleFunc("/products/random", productHandler.GetRandomProduct).Methods(http.MethodGet)
 
 	return r
