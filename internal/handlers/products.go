@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	customerrors "furniture-search-api/internal/errors"
@@ -16,6 +17,7 @@ type ProductService interface {
 	SearchByTitle(ctx context.Context, searchQuery string) ([]models.Product, error)
 	GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error)
 	GetSimilarProducts(ctx context.Context, url string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.SimilarProduct, error)
+	MarkMatchingProduct(ctx context.Context, url1 string, url2 string, isMatching bool) error
 }
 
 type ProductHandler struct {
@@ -131,6 +133,32 @@ func (h *ProductHandler) GetSimilarProducts(w http.ResponseWriter, r *http.Reque
 
 	if err := helpers.WriteJSONResponse(w, http.StatusOK, similarProducts); err != nil {
 		helpers.LogError("Failed to encode products", r.Context(), err, nil)
+		return
+	}
+}
+
+func (h *ProductHandler) MarkMatchingProduct(w http.ResponseWriter, r *http.Request) {
+	var req models.MarkMatchingProductRequest
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		helpers.LogInfo("Invalid JSON payload", r.Context(), nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// print req
+	fmt.Printf("MarkMatchingProduct request: %+v\n", req)
+
+	err = h.service.MarkMatchingProduct(r.Context(), req.Url1, req.Url2, req.IsMatching)
+	if err != nil {
+		helpers.LogError("Failed to mark matching product", r.Context(), err, map[string]interface{}{"url1": req.Url1, "url2": req.Url2})
+		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, nil); err != nil {
+		helpers.LogError("Failed to mark matching product", r.Context(), err, nil)
 		return
 	}
 }

@@ -19,3 +19,9 @@ type SimilarProduct struct {
 	CosineSimilarity   string  `json:"cosine_similarity"`
 	CombinedSimilarity string  `json:"combined_similarity"`
 }
+
+type MarkMatchingProductRequest struct {
+	Url1       string `json:"url1"`
+	Url2       string `json:"url2"`
+	IsMatching bool   `json:"is_matching"`
+}

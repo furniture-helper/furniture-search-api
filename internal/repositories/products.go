@@ -166,3 +166,19 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 
 	return similarProducts, nil
 }
+
+func (r *ProductRepository) MarkMatchingProduct(ctx context.Context, url1 string, url2 string, isMatching bool) error {
+	const query = `
+		INSERT INTO matching_products
+		(url_1, url_2, matching)
+		VALUES
+		($1, $2, $3)
+		ON CONFLICT (url_1, url_2) DO UPDATE SET matching = EXCLUDED.matching
+	`
+
+	_, err := r.pool.Exec(ctx, query, url1, url2, isMatching)
+	if err != nil {
+		return fmt.Errorf("failed to mark product: %w", err)
+	}
+	return nil
+}
