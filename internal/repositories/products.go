@@ -182,3 +182,42 @@ func (r *ProductRepository) MarkMatchingProduct(ctx context.Context, url1 string
 	}
 	return nil
 }
+
+func (r *ProductRepository) GetRandomProduct(ctx context.Context) (models.Product, error) {
+	const query = `
+		WITH RandomDomain AS (
+			SELECT domain
+			FROM pages
+			GROUP BY domain
+			ORDER BY RANDOM()
+			LIMIT 1
+		)
+		SELECT pil.url, pil.product_title, pil.product_price
+		FROM page_inferred_labels pil
+				 JOIN pages p ON pil.url = p.url
+		WHERE p.domain = (SELECT domain FROM RandomDomain)
+		ORDER BY RANDOM()
+		LIMIT 1;
+	`
+
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return models.Product{}, fmt.Errorf("failed to query products: %w", err)
+	}
+	defer rows.Close()
+
+	var products []models.Product
+	for rows.Next() {
+		var product models.Product
+		if err := rows.Scan(&product.Url, &product.Title, &product.Price); err != nil {
+			return models.Product{}, fmt.Errorf("failed to scan product: %w", err)
+		}
+		products = append(products, product)
+	}
+
+	if err := rows.Err(); err != nil {
+		return models.Product{}, fmt.Errorf("failed to scan products: %w", err)
+	}
+
+	return products[0], nil
+}

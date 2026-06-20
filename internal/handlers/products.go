@@ -18,6 +18,7 @@ type ProductService interface {
 	GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error)
 	GetSimilarProducts(ctx context.Context, url string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.SimilarProduct, error)
 	MarkMatchingProduct(ctx context.Context, url1 string, url2 string, isMatching bool) error
+	GetRandomProduct(ctx context.Context) (models.Product, error)
 }
 
 type ProductHandler struct {
@@ -147,9 +148,6 @@ func (h *ProductHandler) MarkMatchingProduct(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// print req
-	fmt.Printf("MarkMatchingProduct request: %+v\n", req)
-
 	err = h.service.MarkMatchingProduct(r.Context(), req.Url1, req.Url2, req.IsMatching)
 	if err != nil {
 		helpers.LogError("Failed to mark matching product", r.Context(), err, map[string]interface{}{"url1": req.Url1, "url2": req.Url2})
@@ -159,6 +157,20 @@ func (h *ProductHandler) MarkMatchingProduct(w http.ResponseWriter, r *http.Requ
 
 	if err := helpers.WriteJSONResponse(w, http.StatusOK, nil); err != nil {
 		helpers.LogError("Failed to mark matching product", r.Context(), err, nil)
+		return
+	}
+}
+
+func (h *ProductHandler) GetRandomProduct(w http.ResponseWriter, r *http.Request) {
+	product, err := h.service.GetRandomProduct(r.Context())
+	if err != nil {
+		helpers.LogError("Failed to retrieve random product", r.Context(), err, nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, product); err != nil {
+		helpers.LogError("Failed to encode product", r.Context(), err, nil)
 		return
 	}
 }
