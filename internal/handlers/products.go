@@ -103,12 +103,12 @@ func (h *ProductHandler) GetSimilarProducts(w http.ResponseWriter, r *http.Reque
 
 	titleSimilarityThreshold := r.URL.Query().Get("title_similarity_threshold")
 	if titleSimilarityThreshold == "" {
-		titleSimilarityThreshold = "0.5"
+		titleSimilarityThreshold = "0.3"
 	}
 
 	cosineSimilarityThreshold := r.URL.Query().Get("cosine_similarity_threshold")
 	if cosineSimilarityThreshold == "" {
-		cosineSimilarityThreshold = "0.75"
+		cosineSimilarityThreshold = "0.3"
 	}
 
 	titleSimilarityThresholdFloat, err := strconv.ParseFloat(titleSimilarityThreshold, 64)
