@@ -100,9 +100,15 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 				pil.product_title AS input_title,
 				pil.product_price AS input_price,
 				lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) AS input_domain,
-				pe.embedding AS input_embedding
+				pe.embedding AS input_embedding,
+				pe_256.embedding AS input_embedding_256,
+				pe_title_256.embedding AS input_embedding_title_256,
+				pe_1024.embedding AS input_embedding_1024
 			FROM page_inferred_labels pil
-					 JOIN products_embeddings_768 pe ON pe.url = pil.url
+					 LEFT JOIN products_embeddings_768 pe ON pe.url = pil.url
+					 LEFT JOIN products_embeddings_256 pe_256 ON pe_256.url = pil.url
+					 LEFT JOIN products_embeddings_title_256 pe_title_256 ON pe_title_256.url = pil.url
+					 LEFT JOIN products_embeddings_1024 pe_1024 ON pe_1024.url = pil.url
 			WHERE pil.url = $1  -- seed URL
 		),
 			 candidates AS (
@@ -111,9 +117,15 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 					 pil.product_title AS candidate_title,
 					 pil.product_price AS candidate_price,
 					 lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) AS candidate_domain,
-					 pe.embedding AS candidate_embedding
+					 pe.embedding AS candidate_embedding,
+					 pe_256.embedding AS candidate_embedding_256,
+					 pe_title_256.embedding AS candidate_embedding_title_256,
+					 pe_1024.embedding AS candidate_embedding_1024
 				 FROM page_inferred_labels pil
-						  JOIN products_embeddings_768 pe ON pe.url = pil.url
+						  LEFT JOIN products_embeddings_768 pe ON pe.url = pil.url
+						  LEFT JOIN products_embeddings_256 pe_256 ON pe_256.url = pil.url
+						  LEFT JOIN products_embeddings_title_256 pe_title_256 ON pe_title_256.url = pil.url
+						  LEFT JOIN products_embeddings_1024 pe_1024 ON pe_1024.url = pil.url
 						  CROSS JOIN input i
 				 WHERE pil.url <> i.input_url
 				   AND pil.product_title IS NOT NULL
@@ -131,8 +143,11 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 					 c.candidate_domain,
 					 c.candidate_title,
 					 c.candidate_price,
-					 similarity(lower(i.input_title), lower(c.candidate_title)) AS title_similarity,
-					 1 - (c.candidate_embedding <=> i.input_embedding) AS cosine_similarity
+					 COALESCE(similarity(lower(i.input_title), lower(c.candidate_title)), 0) AS title_similarity,
+					 COALESCE(1 - (c.candidate_embedding <=> i.input_embedding), 0) AS cosine_similarity_768,
+					 COALESCE(1 - (c.candidate_embedding_256 <=> i.input_embedding_256), 0) AS cosine_similarity_256,
+					 COALESCE(1 - (c.candidate_embedding_title_256 <=> i.input_embedding_title_256), 0) AS cosine_similarity_title_256,
+					 COALESCE(1 - (c.candidate_embedding_1024 <=> i.input_embedding_1024), 0) AS cosine_similarity_1024
 				 FROM candidates c
 						  CROSS JOIN input i
 			 )
@@ -141,11 +156,14 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 			candidate_title,
 			candidate_price,
 			title_similarity,
-			cosine_similarity,
-			(0.5 * title_similarity + 0.5 * cosine_similarity) AS combined_score
+			cosine_similarity_768,
+			cosine_similarity_256,
+			cosine_similarity_title_256,
+			cosine_similarity_1024,
+			(0.5 * title_similarity + 0.5 * cosine_similarity_768) AS combined_score
 		FROM scored
-		WHERE title_similarity >= $2 AND cosine_similarity >= $3
-		ORDER BY combined_score DESC, cosine_similarity DESC
+		WHERE title_similarity >= $2 AND cosine_similarity_768 >= $3
+		ORDER BY combined_score DESC, cosine_similarity_768 DESC
 		LIMIT 100;
 	`
 
@@ -158,7 +176,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 	var similarProducts []models.SimilarProduct
 	for rows.Next() {
 		var similarProduct models.SimilarProduct
-		if err := rows.Scan(&similarProduct.Product.Url, &similarProduct.Product.Title, &similarProduct.Product.Price, &similarProduct.TitleSimilarity, &similarProduct.CosineSimilarity, &similarProduct.CombinedSimilarity); err != nil {
+		if err := rows.Scan(&similarProduct.Product.Url, &similarProduct.Product.Title, &similarProduct.Product.Price, &similarProduct.TitleSimilarity, &similarProduct.CosineSimilarity, &similarProduct.CosineSimilarity256, &similarProduct.CosineSimilarityTitle256, &similarProduct.CosineSimilarity1024, &similarProduct.CombinedSimilarity); err != nil {
 			return []models.SimilarProduct{}, fmt.Errorf("failed to scan similar product: %w", err)
 		}
 		similarProducts = append(similarProducts, similarProduct)
@@ -196,6 +214,8 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context) (models.Produc
 		FROM page_inferred_labels pil
 				 JOIN pages p ON pil.url = p.url
 		WHERE p.domain = (SELECT domain FROM RandomDomain)
+			AND pil.product_title IS NOT NULL
+			AND pil.product_price IS NOT NULL
 		ORDER BY RANDOM()
 		LIMIT 1;
 	`

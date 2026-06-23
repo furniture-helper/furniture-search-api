@@ -40,3 +40,11 @@ func GetRequestIdFromContext(ctx context.Context) string {
 
 	return strings.TrimSpace(requestId)
 }
+
+func NormalizeEncodedURL(rawURL string) string {
+	normalizedURL := strings.TrimSpace(rawURL)
+	if normalizedURL == "" {
+		return ""
+	}
+	return strings.ReplaceAll(normalizedURL, " ", "%20")
+}

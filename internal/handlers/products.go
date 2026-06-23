@@ -30,7 +30,7 @@ func NewProductHandler(service ProductService) *ProductHandler {
 }
 
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
-	url := r.URL.Query().Get("url")
+	url := helpers.NormalizeEncodedURL(r.URL.Query().Get("url"))
 	if url == "" {
 		helpers.LogInfo("Missing url query parameter", r.Context(), nil)
 		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Missing url query parameter")
@@ -78,7 +78,7 @@ func (h *ProductHandler) SearchByTitle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProductHandler) GetPriceHistory(w http.ResponseWriter, r *http.Request) {
-	url := r.URL.Query().Get("url")
+	url := helpers.NormalizeEncodedURL(r.URL.Query().Get("url"))
 	if url == "" {
 		helpers.LogInfo("Missing url query parameter", r.Context(), nil)
 	}
@@ -94,7 +94,7 @@ func (h *ProductHandler) GetPriceHistory(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *ProductHandler) GetSimilarProducts(w http.ResponseWriter, r *http.Request) {
-	url := r.URL.Query().Get("url")
+	url := helpers.NormalizeEncodedURL(r.URL.Query().Get("url"))
 	if url == "" {
 		helpers.LogInfo("Missing url query parameter", r.Context(), nil)
 		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Missing url query parameter")
