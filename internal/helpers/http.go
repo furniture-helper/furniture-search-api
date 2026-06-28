@@ -46,5 +46,7 @@ func NormalizeEncodedURL(rawURL string) string {
 	if normalizedURL == "" {
 		return ""
 	}
-	return strings.ReplaceAll(normalizedURL, " ", "%20")
+	normalizedURL = strings.ReplaceAll(normalizedURL, " ", "%20")
+	normalizedURL = strings.ReplaceAll(normalizedURL, "″", "%e2%80%b3")
+	return normalizedURL
 }

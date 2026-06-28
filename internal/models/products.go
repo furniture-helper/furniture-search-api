@@ -14,13 +14,11 @@ type PriceHistoryEntry struct {
 }
 
 type SimilarProduct struct {
-	Product                  Product `json:"product"`
-	TitleSimilarity          string  `json:"title_similarity"`
-	CosineSimilarity         string  `json:"cosine_similarity"`
-	CombinedSimilarity       string  `json:"combined_similarity"`
-	CosineSimilarity256      string  `json:"cosine_similarity_256"`
-	CosineSimilarityTitle256 string  `json:"cosine_similarity_title_256"`
-	CosineSimilarity1024     string  `json:"cosine_similarity_1024"`
+	Product                      Product `json:"product"`
+	TitleSimilarity              string  `json:"title_similarity"`
+	CosineSimilarity             string  `json:"cosine_similarity"`
+	CombinedSimilarity           string  `json:"combined_similarity"`
+	CosineSimilarityFinetuned768 string  `json:"cosine_similarity_finetuned_768"`
 }
 
 type MarkMatchingProductRequest struct {
