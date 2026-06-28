@@ -123,7 +123,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 				 WHERE pil.url <> i.input_url
 				   AND pil.product_title IS NOT NULL
 				   AND pil.product_price IS NOT NULL
-				  -- AND lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) <> i.input_domain
+				   AND lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) <> i.input_domain
 				 -- remove the line above if you want same-domain candidates too
 			 ),
 			 scored AS (
