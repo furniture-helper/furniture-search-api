@@ -3,9 +3,10 @@ package models
 import "time"
 
 type Product struct {
-	Url   string `json:"url"`
-	Title string `json:"title"`
-	Price string `json:"price"`
+	Url      string  `json:"url"`
+	Title    string  `json:"title"`
+	Price    string  `json:"price"`
+	ImageUrl *string `json:"image_url"`
 }
 
 type PriceHistoryEntry struct {

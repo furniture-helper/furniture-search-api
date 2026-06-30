@@ -21,14 +21,14 @@ func NewProductRepository(pool *pgxpool.Pool) *ProductRepository {
 
 func (r *ProductRepository) GetByURL(ctx context.Context, url string) (models.Product, error) {
 	const query = `
-		SELECT url, product_title, product_price
+		SELECT url, product_title, product_price, product_image_url
 		FROM page_inferred_labels
 		WHERE url = $1
 		LIMIT 1
 	`
 
 	var product models.Product
-	if err := r.pool.QueryRow(ctx, query, url).Scan(&product.Url, &product.Title, &product.Price); err != nil {
+	if err := r.pool.QueryRow(ctx, query, url).Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.Product{}, customerrors.NewProductNotFoundError(url)
 		}
@@ -41,7 +41,7 @@ func (r *ProductRepository) GetByURL(ctx context.Context, url string) (models.Pr
 
 func (r *ProductRepository) SearchByTitle(ctx context.Context, searchQuery string) ([]models.Product, error) {
 	const query = `
-		SELECT url, product_title, product_price 
+		SELECT url, product_title, product_price, product_image_url
 		FROM page_inferred_labels
 		WHERE to_tsvector('simple', product_title) @@ plainto_tsquery('simple', $1)
 			AND url NOT LIKE '%bigdeals.lk%'
@@ -58,7 +58,7 @@ func (r *ProductRepository) SearchByTitle(ctx context.Context, searchQuery strin
 
 	for rows.Next() {
 		var product models.Product
-		if err := rows.Scan(&product.Url, &product.Title, &product.Price); err != nil {
+		if err := rows.Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl); err != nil {
 			return []models.Product{}, fmt.Errorf("failed to query products: %w", err)
 		}
 		products = append(products, product)
@@ -113,6 +113,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 					 pil.url AS candidate_url,
 					 pil.product_title AS candidate_title,
 					 pil.product_price AS candidate_price,
+					 pil.product_image_url AS candidate_image_url,	
 					 lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) AS candidate_domain,
 					 pe.embedding AS candidate_embedding,
 					 pe_finetuned_768.embedding AS candidate_embedding_finetuned_768
@@ -136,6 +137,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 					 c.candidate_domain,
 					 c.candidate_title,
 					 c.candidate_price,
+					 c.candidate_image_url,
 					 COALESCE(similarity(lower(i.input_title), lower(c.candidate_title)), 0) AS title_similarity,
 					 COALESCE(1 - (c.candidate_embedding <=> i.input_embedding), 0) AS cosine_similarity_768,
 					 COALESCE(1 - (c.candidate_embedding_finetuned_768 <=> i.input_embedding_finetuned_768), 0) AS cosine_similarity_finetuned_768
@@ -146,6 +148,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 			candidate_url,
 			candidate_title,
 			candidate_price,
+			candidate_image_url,
 			title_similarity,
 			cosine_similarity_768,
 			cosine_similarity_finetuned_768,
@@ -169,6 +172,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 			&similarProduct.Product.Url,
 			&similarProduct.Product.Title,
 			&similarProduct.Product.Price,
+			&similarProduct.Product.ImageUrl,
 			&similarProduct.TitleSimilarity,
 			&similarProduct.CosineSimilarity,
 			&similarProduct.CosineSimilarityFinetuned768,
@@ -207,7 +211,7 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context) (models.Produc
 			ORDER BY RANDOM()
 			LIMIT 1
 		)
-		SELECT pil.url, pil.product_title, pil.product_price
+		SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
 		FROM page_inferred_labels pil
 				 JOIN pages p ON pil.url = p.url
 		WHERE p.domain = (SELECT domain FROM RandomDomain)
@@ -226,7 +230,7 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context) (models.Produc
 	var products []models.Product
 	for rows.Next() {
 		var product models.Product
-		if err := rows.Scan(&product.Url, &product.Title, &product.Price); err != nil {
+		if err := rows.Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl); err != nil {
 			return models.Product{}, fmt.Errorf("failed to scan product: %w", err)
 		}
 		products = append(products, product)
