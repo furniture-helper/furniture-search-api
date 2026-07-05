@@ -202,26 +202,42 @@ func (r *ProductRepository) MarkMatchingProduct(ctx context.Context, url1 string
 	return nil
 }
 
-func (r *ProductRepository) GetRandomProduct(ctx context.Context) (models.Product, error) {
-	const query = `
-		WITH RandomDomain AS (
-			SELECT domain
-			FROM pages
-			GROUP BY domain
+func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string) (models.Product, error) {
+	var rows pgx.Rows
+	var err error
+	if domain != nil && *domain != "" {
+		const query = `
+			SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
+			FROM page_inferred_labels pil
+					 JOIN pages p ON pil.url = p.url
+			WHERE p.domain = $1
+				AND pil.product_title IS NOT NULL
+				AND pil.product_price IS NOT NULL
 			ORDER BY RANDOM()
-			LIMIT 1
-		)
-		SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
-		FROM page_inferred_labels pil
-				 JOIN pages p ON pil.url = p.url
-		WHERE p.domain = (SELECT domain FROM RandomDomain)
-			AND pil.product_title IS NOT NULL
-			AND pil.product_price IS NOT NULL
-		ORDER BY RANDOM()
-		LIMIT 1;
-	`
+			LIMIT 1;
+		`
+		rows, err = r.pool.Query(ctx, query, *domain)
+	} else {
+		const query = `
+			WITH RandomDomain AS (
+				SELECT domain
+				FROM pages
+				GROUP BY domain
+				ORDER BY RANDOM()
+				LIMIT 1
+			)
+			SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
+			FROM page_inferred_labels pil
+					 JOIN pages p ON pil.url = p.url
+			WHERE p.domain = (SELECT domain FROM RandomDomain)
+				AND pil.product_title IS NOT NULL
+				AND pil.product_price IS NOT NULL
+			ORDER BY RANDOM()
+			LIMIT 1;
+		`
+		rows, err = r.pool.Query(ctx, query)
+	}
 
-	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
 		return models.Product{}, fmt.Errorf("failed to query products: %w", err)
 	}

@@ -18,7 +18,7 @@ type ProductService interface {
 	GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error)
 	GetSimilarProducts(ctx context.Context, url string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.SimilarProduct, error)
 	MarkMatchingProduct(ctx context.Context, url1 string, url2 string, isMatching bool) error
-	GetRandomProduct(ctx context.Context) (models.Product, error)
+	GetRandomProduct(ctx context.Context, domain *string) (models.Product, error)
 	GetProductMetadata(ctx context.Context, url string) (models.ProductMetadata, error)
 	GetSourceCrawledPageUrl(ctx context.Context, url string) (string, error)
 	GetSourceMinimizedPageUrl(ctx context.Context, url string) (string, error)
@@ -165,7 +165,15 @@ func (h *ProductHandler) MarkMatchingProduct(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *ProductHandler) GetRandomProduct(w http.ResponseWriter, r *http.Request) {
-	product, err := h.service.GetRandomProduct(r.Context())
+	var domainParam *string
+	domain := helpers.NormalizeEncodedURL(r.URL.Query().Get("domain"))
+	if domain == "" {
+		domainParam = nil
+	} else {
+		domainParam = &domain
+	}
+
+	product, err := h.service.GetRandomProduct(r.Context(), domainParam)
 	if err != nil {
 		helpers.LogError("Failed to retrieve random product", r.Context(), err, nil)
 		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")

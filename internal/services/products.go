@@ -13,7 +13,7 @@ type ProductStore interface {
 	GetPriceHistory(ctx context.Context, url string) ([]models.PriceHistoryEntry, error)
 	GetSimilarProducts(ctx context.Context, url string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.SimilarProduct, error)
 	MarkMatchingProduct(ctx context.Context, url1 string, url2 string, isMatching bool) error
-	GetRandomProduct(ctx context.Context) (models.Product, error)
+	GetRandomProduct(ctx context.Context, domain *string) (models.Product, error)
 	GetProductMetadata(ctx context.Context, url string) (models.ProductMetadata, error)
 	GetS3Key(ctx context.Context, url string) (string, error)
 }
@@ -76,8 +76,8 @@ func (s *ProductService) MarkMatchingProduct(ctx context.Context, url1 string, u
 	return nil
 }
 
-func (s *ProductService) GetRandomProduct(ctx context.Context) (models.Product, error) {
-	product, err := s.repository.GetRandomProduct(ctx)
+func (s *ProductService) GetRandomProduct(ctx context.Context, domain *string) (models.Product, error) {
+	product, err := s.repository.GetRandomProduct(ctx, domain)
 	if err != nil {
 		return models.Product{}, err
 	}
