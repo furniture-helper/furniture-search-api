@@ -217,8 +217,8 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string
 		const query = `
 			SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
 			FROM page_inferred_labels pil
-					 JOIN pages p ON pil.url = p.url
-					 INNER JOIN page_classifications pc ON pil.classification_id = pc.id
+					 INNER JOIN pages p ON pil.url = p.url
+					 INNER JOIN page_classifications pc ON pil.url = pc.url
 			WHERE p.domain = $1
 				AND pil.product_title IS NOT NULL
 				AND pil.product_price IS NOT NULL
