@@ -127,12 +127,6 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 				   AND pil.product_title IS NOT NULL
 				   AND pil.product_price IS NOT NULL
    				   AND lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) <> i.input_domain
-				   AND EXISTS (
-					  SELECT 1
-					  FROM page_classifications pc
-					  WHERE pc.url = pil.url
-						AND pc.type = 'product'
-					)
 				 -- remove the line above if you want same-domain candidates too
 			 ),
 			 scored AS (
@@ -238,10 +232,12 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string
 			)
 			SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
 			FROM page_inferred_labels pil
-					 JOIN pages p ON pil.url = p.url
+					 INNER JOIN pages p ON pil.url = p.url
+					 INNER JOIN page_classifications pc ON pil.url = pc.url
 			WHERE p.domain = (SELECT domain FROM RandomDomain)
 				AND pil.product_title IS NOT NULL
 				AND pil.product_price IS NOT NULL
+				AND pc.type = 'product'
 			ORDER BY RANDOM()
 			LIMIT 1;
 		`
