@@ -242,3 +242,68 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context) (models.Produc
 
 	return products[0], nil
 }
+
+func (r *ProductRepository) GetProductMetadata(ctx context.Context, url string) (models.ProductMetadata, error) {
+	const query = `
+	SELECT
+		pages.url,
+		pages.s3_key,
+		pages.created_at AS detected_at,
+		pages.last_crawled_at,
+		minimized_pages.last_minimized_at,
+		page_classifications.last_classified_at,
+		page_inferred_labels.last_inferred_at
+	FROM pages
+		 LEFT JOIN minimized_pages on minimized_pages.url = pages.url
+		 LEFT JOIN page_classifications on page_classifications.url = pages.url
+		 LEFT JOIN page_inferred_labels on page_inferred_labels.url = pages.url
+	WHERE pages.url = $1
+	LIMIT 1;
+	`
+
+	rows, err := r.pool.Query(ctx, query, url)
+	if err != nil {
+		return models.ProductMetadata{}, fmt.Errorf("failed to query products: %w", err)
+	}
+	defer rows.Close()
+
+	var productMetadata models.ProductMetadata
+	for rows.Next() {
+		if err := rows.Scan(
+			&productMetadata.Url,
+			&productMetadata.S3Key,
+			&productMetadata.DetectedAt,
+			&productMetadata.LastCrawledAt,
+			&productMetadata.LastMinimizedAt,
+			&productMetadata.LastClassifiedAt,
+			&productMetadata.LastInferredAt,
+		); err != nil {
+			return models.ProductMetadata{}, fmt.Errorf("failed to scan product metadata: %w", err)
+		}
+	}
+
+	return productMetadata, nil
+}
+
+func (r *ProductRepository) GetS3Key(ctx context.Context, url string) (string, error) {
+	const get_s3_key_query = `
+		SELECT s3_key
+		FROM pages
+		WHERE url = $1
+	`
+
+	rows, err := r.pool.Query(ctx, get_s3_key_query, url)
+	if err != nil {
+		return "", fmt.Errorf("failed to get s3_key: %w", err)
+	}
+	defer rows.Close()
+
+	var s3_key string
+	for rows.Next() {
+		if err := rows.Scan(&s3_key); err != nil {
+			return "", fmt.Errorf("failed to get s3_key: %w", err)
+		}
+	}
+
+	return s3_key, nil
+}

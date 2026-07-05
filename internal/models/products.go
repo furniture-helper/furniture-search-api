@@ -27,3 +27,22 @@ type MarkMatchingProductRequest struct {
 	Url2       string `json:"url2"`
 	IsMatching bool   `json:"is_matching"`
 }
+
+type ProductMetadata struct {
+	Url              string     `json:"url"`
+	S3Key            *string    `json:"s3_key"`
+	DetectedAt       *time.Time `json:"detected_at"`
+	LastCrawledAt    *time.Time `json:"last_crawled_at"`
+	LastMinimizedAt  *time.Time `json:"last_minimized_at"`
+	LastClassifiedAt *time.Time `json:"last_classified_at"`
+	LastInferredAt   *time.Time `json:"last_inferred_at"`
+}
+
+type ProductSourcePages struct {
+	CrawledPage   *string `json:"crawled_page"`
+	MinimizedPage *string `json:"minimized_page"`
+}
+
+type SourcePage struct {
+	Url string `json:"url"`
+}

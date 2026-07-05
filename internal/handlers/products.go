@@ -19,6 +19,9 @@ type ProductService interface {
 	GetSimilarProducts(ctx context.Context, url string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.SimilarProduct, error)
 	MarkMatchingProduct(ctx context.Context, url1 string, url2 string, isMatching bool) error
 	GetRandomProduct(ctx context.Context) (models.Product, error)
+	GetProductMetadata(ctx context.Context, url string) (models.ProductMetadata, error)
+	GetSourceCrawledPageUrl(ctx context.Context, url string) (string, error)
+	GetSourceMinimizedPageUrl(ctx context.Context, url string) (string, error)
 }
 
 type ProductHandler struct {
@@ -171,6 +174,66 @@ func (h *ProductHandler) GetRandomProduct(w http.ResponseWriter, r *http.Request
 
 	if err := helpers.WriteJSONResponse(w, http.StatusOK, product); err != nil {
 		helpers.LogError("Failed to encode product", r.Context(), err, nil)
+		return
+	}
+}
+
+func (h *ProductHandler) GetProductMetadata(w http.ResponseWriter, r *http.Request) {
+	productMetadata, err := h.service.GetProductMetadata(r.Context(), r.URL.Query().Get("url"))
+	if err != nil {
+		helpers.LogError("Failed to retrieve product metadata", r.Context(), err, nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, productMetadata); err != nil {
+		helpers.LogError("Failed to encode product metadata", r.Context(), err, nil)
+		return
+	}
+}
+
+func (h *ProductHandler) GetSourceCrawledPageUrl(w http.ResponseWriter, r *http.Request) {
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		helpers.LogInfo("Missing url query parameter", r.Context(), nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Missing url query parameter")
+		return
+	}
+
+	sourceUrl, err := h.service.GetSourceCrawledPageUrl(r.Context(), url)
+	if err != nil {
+		helpers.LogError("Failed to retrieve source crawled page url", r.Context(), err, map[string]interface{}{"url": url})
+		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	sourcePage := models.SourcePage{Url: sourceUrl}
+
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, sourcePage); err != nil {
+		helpers.LogError("Failed to encode source crawled page url", r.Context(), err, nil)
+		return
+	}
+}
+
+func (h *ProductHandler) GetSourceMinimizedPageUrl(w http.ResponseWriter, r *http.Request) {
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		helpers.LogInfo("Missing url query parameter", r.Context(), nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Missing url query parameter")
+		return
+	}
+
+	minimizedUrl, err := h.service.GetSourceMinimizedPageUrl(r.Context(), url)
+	if err != nil {
+		helpers.LogError("Failed to retrieve source minimized page url", r.Context(), err, map[string]interface{}{"url": url})
+		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	sourcePage := models.SourcePage{Url: minimizedUrl}
+
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, sourcePage); err != nil {
+		helpers.LogError("Failed to encode source minimized page url", r.Context(), err, nil)
 		return
 	}
 }

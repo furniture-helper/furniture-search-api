@@ -29,7 +29,9 @@ func getRouter() *mux.Router {
 	}
 
 	productStore := repositories.NewProductRepository(dbConnectionPool)
-	productService := services.NewProductService(productStore)
+	pageService := services.NewS3Service()
+
+	productService := services.NewProductService(productStore, pageService)
 	productHandler := handlers.NewProductHandler(productService)
 	r.HandleFunc("/products", productHandler.GetProduct).Methods(http.MethodGet)
 	r.HandleFunc("/products/search", productHandler.SearchByTitle).Methods(http.MethodGet)
@@ -37,6 +39,9 @@ func getRouter() *mux.Router {
 	r.HandleFunc("/products/similar", productHandler.GetSimilarProducts).Methods(http.MethodGet)
 	r.HandleFunc("/products/mark-matching", productHandler.MarkMatchingProduct).Methods(http.MethodPost)
 	r.HandleFunc("/products/random", productHandler.GetRandomProduct).Methods(http.MethodGet)
+	r.HandleFunc("/products/metadata", productHandler.GetProductMetadata).Methods(http.MethodGet)
+	r.HandleFunc("/products/source-crawled-page", productHandler.GetSourceCrawledPageUrl).Methods(http.MethodGet)
+	r.HandleFunc("/products/source-minimized-page", productHandler.GetSourceMinimizedPageUrl).Methods(http.MethodGet)
 
 	return r
 }
