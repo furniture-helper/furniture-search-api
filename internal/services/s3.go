@@ -33,8 +33,10 @@ func (*S3Service) getObjectSignedUrl(ctx context.Context, bucket string, key str
 	presignClient := s3.NewPresignClient(s3Client)
 
 	presignedReq, err := presignClient.PresignGetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
+		Bucket:                     aws.String(bucket),
+		Key:                        aws.String(key),
+		ResponseContentDisposition: aws.String("inline"),
+		ResponseContentType:        aws.String("text/html"),
 	}, s3.WithPresignExpires(5*time.Minute))
 
 	if err != nil {
