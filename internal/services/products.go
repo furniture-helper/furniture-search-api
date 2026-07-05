@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"furniture-search-api/internal/helpers"
 	"furniture-search-api/internal/models"
 )
 
@@ -113,7 +112,6 @@ func (s *ProductService) GetSourceCrawledPageUrl(ctx context.Context, url string
 
 func (s *ProductService) GetSourceMinimizedPageUrl(ctx context.Context, url string) (string, error) {
 	s3Key, err := s.repository.GetS3Key(ctx, url)
-	helpers.LogInfo(fmt.Sprintf("Retrieved S3 key for url %s: %s", url, s3Key), ctx, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get s3 key for url %s: %w", url, err)
 	}

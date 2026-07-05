@@ -41,11 +41,13 @@ func (r *ProductRepository) GetByURL(ctx context.Context, url string) (models.Pr
 
 func (r *ProductRepository) SearchByTitle(ctx context.Context, searchQuery string) ([]models.Product, error) {
 	const query = `
-		SELECT url, product_title, product_price, product_image_url
-		FROM page_inferred_labels
-		WHERE to_tsvector('simple', product_title) @@ plainto_tsquery('simple', $1)
-			AND url NOT LIKE '%bigdeals.lk%'
-		ORDER BY product_title <-> $1 ASC
+		SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
+		FROM page_inferred_labels pil
+		INNER JOIN page_classifications pc ON pc.url = pil.url
+		WHERE to_tsvector('simple', pil.product_title) @@ plainto_tsquery('simple', $1)
+			AND pil.url NOT LIKE '%bigdeals.lk%'
+			AND pc.type = 'product'
+		ORDER BY pil.product_title <-> $1 ASC
 		LIMIT 25;
 	`
 
@@ -124,7 +126,13 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 				 WHERE pil.url <> i.input_url
 				   AND pil.product_title IS NOT NULL
 				   AND pil.product_price IS NOT NULL
-				   AND lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) <> i.input_domain
+   				   AND lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) <> i.input_domain
+				   AND EXISTS (
+					  SELECT 1
+					  FROM page_classifications pc
+					  WHERE pc.url = pil.url
+						AND pc.type = 'product'
+					)
 				 -- remove the line above if you want same-domain candidates too
 			 ),
 			 scored AS (
@@ -210,9 +218,11 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string
 			SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
 			FROM page_inferred_labels pil
 					 JOIN pages p ON pil.url = p.url
+					 INNER JOIN page_classifications pc ON pil.classification_id = pc.id
 			WHERE p.domain = $1
 				AND pil.product_title IS NOT NULL
 				AND pil.product_price IS NOT NULL
+				AND pc.type = 'product'
 			ORDER BY RANDOM()
 			LIMIT 1;
 		`
