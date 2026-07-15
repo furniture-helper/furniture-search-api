@@ -21,14 +21,14 @@ func NewProductRepository(pool *pgxpool.Pool) *ProductRepository {
 
 func (r *ProductRepository) GetByURL(ctx context.Context, url string) (models.Product, error) {
 	const query = `
-		SELECT url, product_title, product_price, product_image_url
+		SELECT url, product_title, product_price, product_image_url, in_stock
 		FROM page_inferred_labels
 		WHERE url = $1
 		LIMIT 1
 	`
 
 	var product models.Product
-	if err := r.pool.QueryRow(ctx, query, url).Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl); err != nil {
+	if err := r.pool.QueryRow(ctx, query, url).Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl, &product.InStock); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.Product{}, customerrors.NewProductNotFoundError(url)
 		}
@@ -41,7 +41,7 @@ func (r *ProductRepository) GetByURL(ctx context.Context, url string) (models.Pr
 
 func (r *ProductRepository) SearchByTitle(ctx context.Context, searchQuery string) ([]models.Product, error) {
 	const query = `
-		SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
+		SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url, pil.in_stock
 		FROM page_inferred_labels pil
 		INNER JOIN page_classifications pc ON pc.url = pil.url
 		WHERE to_tsvector('simple', pil.product_title) @@ plainto_tsquery('simple', $1)
@@ -60,7 +60,7 @@ func (r *ProductRepository) SearchByTitle(ctx context.Context, searchQuery strin
 
 	for rows.Next() {
 		var product models.Product
-		if err := rows.Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl); err != nil {
+		if err := rows.Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl, &product.InStock); err != nil {
 			return []models.Product{}, fmt.Errorf("failed to query products: %w", err)
 		}
 		products = append(products, product)
@@ -115,7 +115,8 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 					 pil.url AS candidate_url,
 					 pil.product_title AS candidate_title,
 					 pil.product_price AS candidate_price,
-					 pil.product_image_url AS candidate_image_url,	
+					 pil.product_image_url AS candidate_image_url,
+					 pil.in_stock AS candidate_in_stock,
 					 lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) AS candidate_domain,
 					 pe.embedding AS candidate_embedding,
 					 pe_finetuned_768.embedding AS candidate_embedding_finetuned_768
@@ -140,6 +141,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 					 c.candidate_title,
 					 c.candidate_price,
 					 c.candidate_image_url,
+					 c.candidate_in_stock,
 					 COALESCE(similarity(lower(i.input_title), lower(c.candidate_title)), 0) AS title_similarity,
 					 COALESCE(1 - (c.candidate_embedding <=> i.input_embedding), 0) AS cosine_similarity_768,
 					 COALESCE(1 - (c.candidate_embedding_finetuned_768 <=> i.input_embedding_finetuned_768), 0) AS cosine_similarity_finetuned_768
@@ -151,6 +153,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 			candidate_title,
 			candidate_price,
 			candidate_image_url,
+            candidate_in_stock,
 			title_similarity,
 			cosine_similarity_768,
 			cosine_similarity_finetuned_768,
@@ -175,6 +178,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 			&similarProduct.Product.Title,
 			&similarProduct.Product.Price,
 			&similarProduct.Product.ImageUrl,
+			&similarProduct.Product.InStock,
 			&similarProduct.TitleSimilarity,
 			&similarProduct.CosineSimilarity,
 			&similarProduct.CosineSimilarityFinetuned768,
@@ -209,7 +213,7 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string
 	var err error
 	if domain != nil && *domain != "" {
 		const query = `
-			SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
+			SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url, pil.in_stock
 			FROM page_inferred_labels pil
 					 INNER JOIN pages p ON pil.url = p.url
 					 INNER JOIN page_classifications pc ON pil.url = pc.url
@@ -230,7 +234,7 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string
 				ORDER BY RANDOM()
 				LIMIT 1
 			)
-			SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url
+			SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url, pil.in_stock
 			FROM page_inferred_labels pil
 					 INNER JOIN pages p ON pil.url = p.url
 					 INNER JOIN page_classifications pc ON pil.url = pc.url
@@ -252,7 +256,7 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string
 	var products []models.Product
 	for rows.Next() {
 		var product models.Product
-		if err := rows.Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl); err != nil {
+		if err := rows.Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl, &product.InStock); err != nil {
 			return models.Product{}, fmt.Errorf("failed to scan product: %w", err)
 		}
 		products = append(products, product)

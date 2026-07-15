@@ -7,6 +7,7 @@ type Product struct {
 	Title    string  `json:"title"`
 	Price    string  `json:"price"`
 	ImageUrl *string `json:"image_url"`
+	InStock  *bool   `json:"in_stock"`
 }
 
 type PriceHistoryEntry struct {
