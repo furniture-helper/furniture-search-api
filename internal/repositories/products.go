@@ -107,7 +107,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 				pe_finetuned_768.embedding AS input_embedding_finetuned_768
 			FROM page_inferred_labels pil
 					 LEFT JOIN products_embeddings_768 pe ON pe.url = pil.url
-					 LEFT JOIN products_embeddings_finetuned_768 pe_finetuned_768 ON pe_finetuned_768.url = pil.url
+					 LEFT JOIN products_embeddings_finetuned_768_2 pe_finetuned_768 ON pe_finetuned_768.url = pil.url
 			WHERE pil.url = $1  -- seed URL
 		),
 			 candidates AS (
@@ -122,7 +122,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 					 pe_finetuned_768.embedding AS candidate_embedding_finetuned_768
 				 FROM page_inferred_labels pil
 						  LEFT JOIN products_embeddings_768 pe ON pe.url = pil.url
-						  LEFT JOIN products_embeddings_finetuned_768 pe_finetuned_768 ON pe_finetuned_768.url = pil.url
+						  LEFT JOIN products_embeddings_finetuned_768_2 pe_finetuned_768 ON pe_finetuned_768.url = pil.url
 						  CROSS JOIN input i
 				 WHERE pil.url <> i.input_url
 				   AND pil.product_title IS NOT NULL
