@@ -27,9 +27,12 @@ const (
 )
 
 type DatabaseConfig struct {
-	URL      string
-	MaxConns int32
-	MinConns int32
+	URL            string
+	MaxConns       int32
+	MinConns       int32
+	UseRDSIAMAuth  bool
+	AWSRegion      string
+	IAMRefreshLead string
 }
 
 type DatabaseSecrets struct {
@@ -43,15 +46,20 @@ func GetDatabaseConfig(ctx context.Context) DatabaseConfig {
 		ctx = context.Background()
 	}
 
+	credentialsType := strings.TrimSpace(os.Getenv("DATABASE_CREDENTIALS_TYPE"))
+
 	return DatabaseConfig{
-		URL:      buildDatabaseURL(ctx),
-		MaxConns: getInt32Env("DB_MAX_CONNS", defaultDBMaxConns),
-		MinConns: getInt32Env("DB_MIN_CONNS", defaultDBMinConns),
+		URL:            buildDatabaseURL(ctx, credentialsType),
+		MaxConns:       getInt32Env("DB_MAX_CONNS", defaultDBMaxConns),
+		MinConns:       getInt32Env("DB_MIN_CONNS", defaultDBMinConns),
+		UseRDSIAMAuth:  credentialsType == "rds_iam",
+		AWSRegion:      getAWSRegion(),
+		IAMRefreshLead: getStringEnv("DB_IAM_REFRESH_LEAD_TIME", "2m"),
 	}
 }
 
-func buildDatabaseURL(ctx context.Context) string {
-	if os.Getenv("DATABASE_CREDENTIALS_TYPE") == "secrets_manager" {
+func buildDatabaseURL(ctx context.Context, credentialsType string) string {
+	if credentialsType == "secrets_manager" {
 		fmt.Println("Using secrets_manager database credentials")
 		err := loadSecretsManagerToEnv(ctx)
 		if err != nil {
@@ -130,7 +138,11 @@ func buildDatabaseURLFromEnv() string {
 		Path:   database,
 	}
 
-	connURL.User = url.UserPassword(username, password)
+	if password == "" {
+		connURL.User = url.User(username)
+	} else {
+		connURL.User = url.UserPassword(username, password)
+	}
 
 	query := url.Values{}
 	query.Set("sslmode", sslmode)
@@ -160,4 +172,16 @@ func getStringEnv(key, fallback string) string {
 	}
 
 	return value
+}
+
+func getAWSRegion() string {
+	if region := strings.TrimSpace(os.Getenv("DB_AWS_REGION")); region != "" {
+		return region
+	}
+
+	if region := strings.TrimSpace(os.Getenv("AWS_REGION")); region != "" {
+		return region
+	}
+
+	return strings.TrimSpace(os.Getenv("AWS_DEFAULT_REGION"))
 }
