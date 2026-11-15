@@ -39,20 +39,34 @@ func (r *ProductRepository) GetByURL(ctx context.Context, url string) (models.Pr
 	return product, nil
 }
 
-func (r *ProductRepository) SearchByTitle(ctx context.Context, searchQuery string) ([]models.Product, error) {
+func (r *ProductRepository) SearchByTitle(ctx context.Context, searchQuery string, titleSimilarityThreshold float64, limit int) ([]models.Product, error) {
 	const query = `
-		SELECT pil.url, pil.product_title, pil.product_price, pil.product_image_url, pil.in_stock
-		FROM page_inferred_labels pil
-		INNER JOIN page_classifications pc ON pc.url = pil.url
-		WHERE to_tsvector('simple', pil.product_title) @@ plainto_tsquery('simple', $1)
-			AND pil.url NOT LIKE '%bigdeals.lk%'
-			AND pc.type = 'product'
-		ORDER BY pil.product_title <-> $1 ASC
-		LIMIT 25;
+		WITH scored AS (
+			SELECT
+				pil.url,
+				pil.product_title,
+				pil.product_price,
+				pil.product_image_url,
+				pil.in_stock,
+				COALESCE(similarity(lower(pil.product_title), lower($1)), 0) AS title_similarity
+			FROM page_inferred_labels pil
+			INNER JOIN page_classifications pc ON pc.url = pil.url
+			WHERE to_tsvector('simple', pil.product_title) @@ plainto_tsquery('simple', $1)
+				AND pil.product_title IS NOT NULL
+				AND pil.url NOT LIKE '%bigdeals.lk%'
+				AND pc.type = 'product'
+		)
+		SELECT url, product_title, product_price, product_image_url, in_stock
+		FROM scored
+		WHERE title_similarity >= $2
+		ORDER BY
+			CASE WHEN $2 > 0 THEN title_similarity ELSE NULL END DESC,
+			product_title <-> $1 ASC
+		LIMIT $3;
 	`
 
 	products := make([]models.Product, 0)
-	rows, err := r.pool.Query(ctx, query, searchQuery)
+	rows, err := r.pool.Query(ctx, query, searchQuery, titleSimilarityThreshold, limit)
 	if err != nil {
 		return []models.Product{}, fmt.Errorf("failed to query products: %w", err)
 	}
@@ -103,11 +117,9 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 				pil.product_title AS input_title,
 				pil.product_price AS input_price,
 				lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) AS input_domain,
-				pe.embedding AS input_embedding,
-				pe_finetuned_768.embedding AS input_embedding_finetuned_768
+				pe_finetuned_768_2.embedding AS input_embedding_finetuned_768_2
 			FROM page_inferred_labels pil
-					 LEFT JOIN products_embeddings_768 pe ON pe.url = pil.url
-					 LEFT JOIN products_embeddings_finetuned_768_2 pe_finetuned_768 ON pe_finetuned_768.url = pil.url
+				 LEFT JOIN products_embeddings_finetuned_768_2 pe_finetuned_768_2 ON pe_finetuned_768_2.url = pil.url
 			WHERE pil.url = $1  -- seed URL
 		),
 			 candidates AS (
@@ -118,11 +130,9 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 					 pil.product_image_url AS candidate_image_url,
 					 pil.in_stock AS candidate_in_stock,
 					 lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) AS candidate_domain,
-					 pe.embedding AS candidate_embedding,
-					 pe_finetuned_768.embedding AS candidate_embedding_finetuned_768
+					 pe_finetuned_768_2.embedding AS candidate_embedding_finetuned_768_2
 				 FROM page_inferred_labels pil
-						  LEFT JOIN products_embeddings_768 pe ON pe.url = pil.url
-						  LEFT JOIN products_embeddings_finetuned_768_2 pe_finetuned_768 ON pe_finetuned_768.url = pil.url
+						  LEFT JOIN products_embeddings_finetuned_768_2 pe_finetuned_768_2 ON pe_finetuned_768_2.url = pil.url
 						  CROSS JOIN input i
 				 WHERE pil.url <> i.input_url
 				   AND pil.product_title IS NOT NULL
@@ -143,8 +153,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 					 c.candidate_image_url,
 					 c.candidate_in_stock,
 					 COALESCE(similarity(lower(i.input_title), lower(c.candidate_title)), 0) AS title_similarity,
-					 COALESCE(1 - (c.candidate_embedding <=> i.input_embedding), 0) AS cosine_similarity_768,
-					 COALESCE(1 - (c.candidate_embedding_finetuned_768 <=> i.input_embedding_finetuned_768), 0) AS cosine_similarity_finetuned_768
+					 COALESCE(1 - (c.candidate_embedding_finetuned_768_2 <=> i.input_embedding_finetuned_768_2), 0) AS cosine_similarity_finetuned_768
 				 FROM candidates c
 						  CROSS JOIN input i
 			 )
@@ -155,9 +164,8 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 			candidate_image_url,
             candidate_in_stock,
 			title_similarity,
-			cosine_similarity_768,
 			cosine_similarity_finetuned_768,
-			(0.5 * title_similarity + 0.5 * cosine_similarity_768) AS combined_score
+			(0.5 * title_similarity + 0.5 * cosine_similarity_finetuned_768) AS combined_score
 		FROM scored
 		WHERE title_similarity >= $2 AND cosine_similarity_finetuned_768 >= $3
 		ORDER BY cosine_similarity_finetuned_768 DESC, combined_score DESC
@@ -180,7 +188,6 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 			&similarProduct.Product.ImageUrl,
 			&similarProduct.Product.InStock,
 			&similarProduct.TitleSimilarity,
-			&similarProduct.CosineSimilarity,
 			&similarProduct.CosineSimilarityFinetuned768,
 			&similarProduct.CombinedSimilarity,
 		); err != nil {
@@ -190,6 +197,62 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 	}
 
 	return similarProducts, nil
+}
+
+func (r *ProductRepository) GetSimilarProductsWithinSet(ctx context.Context, url string, candidateUrls []string, cosineSimilarityThreshold float64) ([]models.Product, error) {
+	if len(candidateUrls) == 0 {
+		return []models.Product{}, nil
+	}
+
+	const query = `
+		WITH input AS (
+			SELECT pe.embedding AS input_embedding
+			FROM products_embeddings_finetuned_768_2 pe
+			WHERE pe.url = $1
+			LIMIT 1
+		),
+		candidates AS (
+			SELECT
+				pil.url,
+				pil.product_title,
+				pil.product_price,
+				pil.product_image_url,
+				pil.in_stock,
+				pe.embedding AS candidate_embedding
+			FROM page_inferred_labels pil
+			INNER JOIN products_embeddings_finetuned_768_2 pe ON pe.url = pil.url
+			WHERE pil.url = ANY($2::text[])
+				AND pil.url <> $1
+				AND pil.product_title IS NOT NULL
+		)
+		SELECT
+			c.url,
+			c.product_title,
+			c.product_price,
+			c.product_image_url,
+			c.in_stock
+		FROM candidates c
+		CROSS JOIN input i
+		WHERE (1 - (c.candidate_embedding <=> i.input_embedding)) >= $3
+		ORDER BY (1 - (c.candidate_embedding <=> i.input_embedding)) DESC;
+	`
+
+	products := make([]models.Product, 0)
+	rows, err := r.pool.Query(ctx, query, url, candidateUrls, cosineSimilarityThreshold)
+	if err != nil {
+		return []models.Product{}, fmt.Errorf("failed to query products: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var product models.Product
+		if err := rows.Scan(&product.Url, &product.Title, &product.Price, &product.ImageUrl, &product.InStock); err != nil {
+			return []models.Product{}, fmt.Errorf("failed to query products: %w", err)
+		}
+		products = append(products, product)
+	}
+
+	return products, nil
 }
 
 func (r *ProductRepository) MarkMatchingProduct(ctx context.Context, url1 string, url2 string, isMatching bool) error {

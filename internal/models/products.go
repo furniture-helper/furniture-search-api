@@ -18,7 +18,6 @@ type PriceHistoryEntry struct {
 type SimilarProduct struct {
 	Product                      Product `json:"product"`
 	TitleSimilarity              string  `json:"title_similarity"`
-	CosineSimilarity             string  `json:"cosine_similarity"`
 	CombinedSimilarity           string  `json:"combined_similarity"`
 	CosineSimilarityFinetuned768 string  `json:"cosine_similarity_finetuned_768"`
 }
@@ -46,4 +45,8 @@ type ProductSourcePages struct {
 
 type SourcePage struct {
 	Url string `json:"url"`
+}
+
+type ProductGroup struct {
+	Products []Product `json:"products"`
 }

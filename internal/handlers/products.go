@@ -22,6 +22,7 @@ type ProductService interface {
 	GetProductMetadata(ctx context.Context, url string) (models.ProductMetadata, error)
 	GetSourceCrawledPageUrl(ctx context.Context, url string) (string, error)
 	GetSourceMinimizedPageUrl(ctx context.Context, url string) (string, error)
+	SearchByTitleWithGrouping(ctx context.Context, searchQuery string, titleSimilarityThreshold float64, cosineSimilarityThreshold float64) ([]models.ProductGroup, error)
 }
 
 type ProductHandler struct {
@@ -242,6 +243,49 @@ func (h *ProductHandler) GetSourceMinimizedPageUrl(w http.ResponseWriter, r *htt
 
 	if err := helpers.WriteJSONResponse(w, http.StatusOK, sourcePage); err != nil {
 		helpers.LogError("Failed to encode source minimized page url", r.Context(), err, nil)
+		return
+	}
+}
+
+func (h *ProductHandler) SearchByTitleWithGrouping(w http.ResponseWriter, r *http.Request) {
+	searchQuery := r.URL.Query().Get("query")
+	if searchQuery == "" {
+		helpers.LogInfo("Missing search query parameter", r.Context(), nil)
+	}
+
+	titleSimilarityThreshold := r.URL.Query().Get("title_similarity_threshold")
+	if titleSimilarityThreshold == "" {
+		titleSimilarityThreshold = "0.3"
+	}
+
+	cosineSimilarityThreshold := r.URL.Query().Get("cosine_similarity_threshold")
+	if cosineSimilarityThreshold == "" {
+		cosineSimilarityThreshold = "0.7"
+	}
+
+	titleSimilarityThresholdFloat, err := strconv.ParseFloat(titleSimilarityThreshold, 64)
+	if err != nil {
+		helpers.LogInfo("Invalid title similarity threshold", r.Context(), nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Invalid title similarity threshold")
+		return
+	}
+
+	cosineSimilarityThresholdFloat, err := strconv.ParseFloat(cosineSimilarityThreshold, 64)
+	if err != nil {
+		helpers.LogInfo("Invalid cosine similarity threshold", r.Context(), nil)
+		helpers.WriteJSONErrorResponse(w, http.StatusBadRequest, "Invalid cosine similarity threshold")
+		return
+	}
+
+	productGroups, err := h.service.SearchByTitleWithGrouping(r.Context(), searchQuery, titleSimilarityThresholdFloat, cosineSimilarityThresholdFloat)
+	if err != nil {
+		helpers.LogError("Failed to retrieve product groups", r.Context(), err, map[string]interface{}{"query": searchQuery})
+		helpers.WriteJSONErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	if err := helpers.WriteJSONResponse(w, http.StatusOK, productGroups); err != nil {
+		helpers.LogError("Failed to encode product groups", r.Context(), err, nil)
 		return
 	}
 }

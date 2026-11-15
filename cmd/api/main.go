@@ -42,6 +42,7 @@ func getRouter() *mux.Router {
 	r.HandleFunc("/products/metadata", productHandler.GetProductMetadata).Methods(http.MethodGet)
 	r.HandleFunc("/products/source-crawled-page", productHandler.GetSourceCrawledPageUrl).Methods(http.MethodGet)
 	r.HandleFunc("/products/source-minimized-page", productHandler.GetSourceMinimizedPageUrl).Methods(http.MethodGet)
+	r.HandleFunc("/products/search-grouped", productHandler.SearchByTitleWithGrouping).Methods(http.MethodGet)
 
 	return r
 }
