@@ -6,6 +6,7 @@ import (
 	"fmt"
 	customerrors "furniture-search-api/internal/errors"
 	"furniture-search-api/internal/models"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,6 +56,7 @@ func (r *ProductRepository) SearchByTitle(ctx context.Context, searchQuery strin
 				AND pil.product_title IS NOT NULL
 				AND pil.url NOT LIKE '%bigdeals.lk%'
 				AND pc.type = 'product'
+				AND pil.last_inferred_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
 		)
 		SELECT url, product_title, product_price, product_image_url, in_stock
 		FROM scored
@@ -87,7 +89,7 @@ func (r *ProductRepository) GetPriceHistory(ctx context.Context, url string) ([]
 	const query = `
 		SELECT price, recorded_at 
 		FROM product_price_history 
-		WHERE url = $1 AND price IS NOT NULL
+		WHERE url = $1 AND price IS NOT NULL AND price > 1
 		ORDER BY recorded_at DESC
 	`
 
@@ -98,12 +100,25 @@ func (r *ProductRepository) GetPriceHistory(ctx context.Context, url string) ([]
 	}
 	defer rows.Close()
 
+	var lastKeptDate time.Time
 	for rows.Next() {
 		var entry models.PriceHistoryEntry
 		if err := rows.Scan(&entry.Price, &entry.Timestamp); err != nil {
 			return []models.PriceHistoryEntry{}, fmt.Errorf("failed to query price history: %w", err)
 		}
+
+		// Rows are newest first, so keep an entry only when it is at least 48 hours
+		// away from the newest entry already kept.
+		if !lastKeptDate.IsZero() && lastKeptDate.Sub(entry.Timestamp) < 48*time.Hour {
+			continue
+		}
+
 		priceHistory = append(priceHistory, entry)
+		lastKeptDate = entry.Timestamp
+	}
+
+	if err := rows.Err(); err != nil {
+		return []models.PriceHistoryEntry{}, fmt.Errorf("failed to read price history: %w", err)
 	}
 
 	return priceHistory, nil
@@ -137,6 +152,7 @@ func (r *ProductRepository) GetSimilarProducts(ctx context.Context, url string, 
 				 WHERE pil.url <> i.input_url
 				   AND pil.product_title IS NOT NULL
 				   AND pil.product_price IS NOT NULL
+				   AND pil.last_inferred_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
    				   AND lower(regexp_replace(substring(pil.url FROM '^(?:.*?://)?(?:[^@]+@)?([^:/?#]+)'), '^www\.', '')) <> i.input_domain
 				 -- remove the line above if you want same-domain candidates too
 			 ),
@@ -224,6 +240,7 @@ func (r *ProductRepository) GetSimilarProductsWithinSet(ctx context.Context, url
 			WHERE pil.url = ANY($2::text[])
 				AND pil.url <> $1
 				AND pil.product_title IS NOT NULL
+				AND pil.last_inferred_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
 		)
 		SELECT
 			c.url,
@@ -284,6 +301,7 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string
 				AND pil.product_title IS NOT NULL
 				AND pil.product_price IS NOT NULL
 				AND pc.type = 'product'
+				AND pil.last_inferred_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
 			ORDER BY RANDOM()
 			LIMIT 1;
 		`
@@ -291,9 +309,15 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string
 	} else {
 		const query = `
 			WITH RandomDomain AS (
-				SELECT domain
-				FROM pages
-				GROUP BY domain
+				SELECT p.domain
+				FROM pages p
+				INNER JOIN page_inferred_labels pil ON pil.url = p.url
+				INNER JOIN page_classifications pc ON pc.url = p.url
+				WHERE pil.product_title IS NOT NULL
+					AND pil.product_price IS NOT NULL
+					AND pc.type = 'product'
+					AND pil.last_inferred_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
+				GROUP BY p.domain
 				ORDER BY RANDOM()
 				LIMIT 1
 			)
@@ -305,6 +329,7 @@ func (r *ProductRepository) GetRandomProduct(ctx context.Context, domain *string
 				AND pil.product_title IS NOT NULL
 				AND pil.product_price IS NOT NULL
 				AND pc.type = 'product'
+				AND pil.last_inferred_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
 			ORDER BY RANDOM()
 			LIMIT 1;
 		`
